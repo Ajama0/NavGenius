@@ -25,7 +25,7 @@ class Environment:
     def place_lights(self):
         # Allow for the random placing of traffic lights
         #define the number of traffic lights
-        num_traffic_lights = 7
+        num_traffic_lights = 50
         for _ in range(num_traffic_lights): # iterating based on number of traffic lights
             while True:
                 row = np.random.randint(self.grid_size)
@@ -43,10 +43,13 @@ class Environment:
                         'red_duration':10,
                         'green_duration':10
 
-                    } #this represents the information of the light at the current position on the gtid
-   
+                    } #this represents the information of the light at the current position on the grid
+                    break
     
 
+                    
+
+    
 
            
                 
