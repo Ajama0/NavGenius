@@ -3,6 +3,16 @@ import random
 import time
 
 class Environment:
+
+
+    ACTIONS = {
+        'up': (-1, 0),
+        'down': (1, 0),
+        'left': (0, -1),
+        'right': (0, 1)
+    }
+     
+
     def __init__(self, grid_size):
      
         self.grid_size = grid_size
@@ -16,32 +26,15 @@ class Environment:
 
         # Exececuted when an instance of the env class is created
         self.initialize_grid()
-    
+        self.place_destination()
+        self.initial_vehicle_position()
         self.place_lights()
-    
         self.static_pedestrians()
         
-        self.initial_vehicle_position()
-        
-
-       
-
+    
     def initialize_grid(self):
-         # initialize the grid 
-       # Initialize the grid with roads ('-,|'), intersections ('+'), and side-walks ('0')
-   
-        for i in range(self.grid_size):
-            for j in range(self.grid_size):
-                if i % 2 == 0 and j % 2 == 0:
-                    self.grid[i, j] = '+'  # Intersection
-                elif i % 2 == 0:
-                    self.grid[i, j] = '-'  # Horizontal road
-                elif j % 2 == 0:
-                    self.grid[i, j] = '|'  # Vertical road
-                else:
-                    self.grid[i, j] = '0'  # Side-walk
-       
-
+       # Initialize the grid with roads
+        self.grid = np.zeros((self.grid_size, self.grid_size), dtype=object)
 
 
     def place_lights(self):
@@ -49,14 +42,14 @@ class Environment:
         # Allow for the random placing of traffic lights
         #traffic lights can only be placed on intersections
         #define the number of traffic lights
-        num_traffic_lights = 8
+        num_traffic_lights = 5
         for _ in range(num_traffic_lights):  # iterating based on number of traffic lights
             while True:
-                row = np.random.randint(0, self.grid_size)
-                col = np.random.randint(0, self.grid_size)
+                row = np.random.randint(0, self.grid_size-1)
+                col = np.random.randint(0, self.grid_size-1)
                 #lets check if its an empty cell
-                # if the cell is empty we can assign a Traffic light... on an intersection
-                if self.grid[row, col] == '+':
+                # if the cell is empty we can assign a Traffic light... on an empty cell
+                if self.grid[row, col] == 0:
                      #randomly choose which state the traffic light will be in R=red, G=green
                     state = random.choice(['R', 'G'])
                     self.grid[row, col] = state  # this represents a Traffic light
@@ -93,19 +86,19 @@ class Environment:
                     #if the timer reaches 0 and the state was previously Red, we will change it to green and switch states and reset the timer
                     light_information["timer"] = light_information["red_duration"]
                  #update the state/value of that position in the grid where the traffic light is placed
-                self.grid[pos] = "G" if light_information["state"] == "G" else "R"
+                self.grid[pos] = light_information["state"]
         print("Traffic lights updated.")
 
 
     def static_pedestrians(self):
         #define the number of pedestrians
-        num_of_pedestrians = 8
+        num_of_pedestrians = 4
         for _ in range(num_of_pedestrians):
             while True:
-                row = random.randint(0, self.grid_size)
-                col = random.randint(0, self.grid_size)
-                if self.grid[row, col] == '0':
-                    self.grid[row, col] = 'P'
+                row = random.randint(0, self.grid_size-1)
+                col = random.randint(0, self.grid_size-1)
+                if self.grid[row, col] == 0:
+                    self.grid[row, col] = 'P'   #assign a pedestrian at this position
                     self.pedestrians_positions.append((row, col))
                     break
         
@@ -119,17 +112,19 @@ class Environment:
     def initial_vehicle_position(self):
         # The vehicle is placed randomly on the grid
         # placed on a a horizontal or vertical road
-        
-        while True:
-            row = random.randint(0, self.grid_size)
-            col = random.randint(0, self.grid_size)
-            if self.grid[row, col] in ['|', '-']:
-                self.grid[row, col] = 'V'
-                self.vehicle_position = (row, col)
-                break
+        row = 0
+        col = 0
+        self.grid[row,col]= 'V'
+        self.vehicle_position = (row,col)
         print(f"Vehicle placed at position: {self.vehicle_position}")
         return self.local_observation()
     
+
+    def place_destination(self):
+        dest_row, dest_col = self.grid_size - 1, self.grid_size - 1
+        self.grid[dest_row, dest_col] = 'D'
+        self.destination = (dest_row, dest_col)
+        print(f"Destination placed at position: {self.destination}")
 
 
     def within_boundary(self, x, y):
@@ -150,8 +145,8 @@ class Environment:
         row, col = self.vehicle_position
         observation_size = 6  #size of our local observation Matrix 6x6
         half_obs = observation_size // 2
-         #initially fill local observation matrix with empty spaces '-'
-        local_obs_matrix = np.full((observation_size, observation_size), '-', dtype=object)
+         #initially fill local observation matrix with empty spaces and ! for out of bounds
+        local_obs_matrix = np.full((observation_size, observation_size), '!', dtype=object)
 
         for i in range(observation_size):
             for j in range(observation_size):
@@ -162,84 +157,91 @@ class Environment:
                  #lets check if the matrix surrounding the vehicle is within our boundary
                 if self.within_boundary(obs_row, obs_col):
                     #copy the values of the main grid at the positons into our local observation matrix
-                    local_obs_matrix[i, j] = self.grid[obs_row, obs_col]
+                    local_obs_matrix[i, j] = str(self.grid[obs_row, obs_col])
 
       
         return local_obs_matrix
     
 
 
-    def valid_actions(self, state):
-        #These are the valid actions the agent can take
+    def valid_actions(self):
+        #These are the valid actions the agent can take, gives the option to the agent to make correct choice
         row, col = self.vehicle_position
         valid_actions = []
-        
-        
 
-        #at any point if the cells the surrounding cells the agent are a road or a Green light, we can append to the valid actions
-        if self.grid[row - 1, col] in ['-', '|', 'G']:
-            valid_actions.append("up")
+        #at any point if actions taken are within boundary, we can append to the valid actions
+        for action, movement in self.ACTIONS.items():
+            new_row, new_col = row + movement[0], col + movement[1]
+            if self.within_boundary(new_row, new_col):
+             valid_actions.append(action)
 
-        if self.grid[row + 1, col]  in ['-', '|', 'G']:
-            valid_actions.append("down") 
-
-        if self.grid[row, col + 1]  in ['-', '|', 'G']:
-            valid_actions.append("right") 
-
-        if self.grid[row, col - 1]  in ['-', '|', 'G']:
-            valid_actions.append("left")
-
-        # we include a stop action, if any of the surrounding cells are a red light
-        #then this way the agent can take the stop action, remaining in its current cell
-        if self.grid[row - 1, col] == 'R' or self.grid[row + 1, col] == 'R' or \
-           self.grid[row, col - 1] == 'R' or self.grid[row, col + 1] == 'R':    
-            valid_actions.append("stop")
-
-
-
-        return self.valid_actions
-
+        return valid_actions
+     
 
 
     def movement(self, action):
+       if action not in self.ACTIONS:
+        print("invalid action taken")
+       
+    
         row, col = self.vehicle_position
-        new_row, new_col = row, col
-
-        #updating the agents positions based on the action taken
-        if action == 'up':
-            new_row -=1
-
-        elif action == 'down':
-            new_row +=1
-
-        elif action == 'left':
-            new_col -=1
-
-        elif action == 'right' :
-            new_col += 1
-
-
-        elif action == 'stop':
-            
-
-
-
-
-
+        move = self.ACTIONS[action]
+        new_row, new_col = row + move[0], col + move[1]
 
         
-       
+        if self.within_boundary(new_row,new_col):
+         if self.grid[new_row,new_col] == 'P' :
+            print("Collided with a pedestrian") 
+            #assign a large penalty for hitting a pedestrian
+            reward = -100
+            done = True #end the episode when the agent collides with pedestrian
+
             
+        elif self.grid[new_row, new_col]  == 'R':
+            print("Encountered a red light")
+            reward = -10 #moderate penalty for running a red light
+            done = False
+
+        elif self.grid[new_row, new_col]=='D':
+            print("episode compelte")
+            reward = 100
+            done = True
+
+        #else if the new action is a valid move
+        elif self.grid[new_row, new_col] in [0, 'G']:
+            self.grid[row,col] = 0
+            self.vehicle_position = (new_row, new_col)
+            self.grid[new_row, new_col] = 'V'
+            print(f"Vehicle moved to position: {self.vehicle_position}")
+            reward = -1 #small negative penalty to reduce unneccessary exploring
+            done = False
+
+        next_state = self.local_observation
+        return next_state, reward, done
+       
+
+    def is_done(self):
+        return self.vehicle_position == self.destination  
+     
 
 
+    def reset(self):
+        self.grid = np.zeros((self.grid_size, self.grid_size), dtype=object)
+        self.pedestrians_positions = []
+        self.traffic_lights_states = {}
+        self.traffic_lights_pos = []
+        self.fuel_capacity = 100
+        self.vehicle_position = None
+        self.destination = None
 
+        self.initialize_grid()
+        self.place_destination()
+        self.initial_vehicle_position()
+        self.place_lights()
+        self.static_pedestrians()
 
-    
-
-
-    
-
-
+        return self.local_observation() 
+            
 
 
 env = Environment(grid_size=10)
@@ -252,7 +254,7 @@ print("Local Observation Matrix:")
 for row in local_obs:
     print(' '.join(row))
 
-# Print the grid for visualization
+# Print the global grid
 print("Global Grid:")
 for row in env.grid:
-    print(' '.join(row))
+    print(' '.join(map(str, row)))
