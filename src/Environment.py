@@ -1,6 +1,6 @@
 import numpy as np
 import random 
-import time
+
 
 class Environment:
 
@@ -176,45 +176,58 @@ class Environment:
              valid_actions.append(action)
 
         return valid_actions
+    
+
+    
+    
+    
      
 
 
     def movement(self, action):
-       if action not in self.ACTIONS:
-        print("invalid action taken")
+        if action not in self.ACTIONS:
+            print("invalid action taken")
+            return self.local_observation(), -10, False   #-10 for an invalid action
        
-    
+
         row, col = self.vehicle_position
         move = self.ACTIONS[action]
         new_row, new_col = row + move[0], col + move[1]
 
         
         if self.within_boundary(new_row,new_col):
-         if self.grid[new_row,new_col] == 'P' :
-            print("Collided with a pedestrian") 
-            #assign a large penalty for hitting a pedestrian
-            reward = -100
-            done = True #end the episode when the agent collides with pedestrian
-
+            if self.grid[new_row,new_col] =='P':
+                print("collided with a pedestrian")
+                #assign a large penalty for hitting a pedestrian
+                reward = -100
+                #end the episode when the agent collides with pedestrian
+                done = True
             
-        elif self.grid[new_row, new_col]  == 'R':
-            print("Encountered a red light")
-            reward = -10 #moderate penalty for running a red light
-            done = False
+            elif self.grid[new_row, new_col]  == 'R':
+                print("Encountered a red light")
+                reward = -10 #moderate penalty for running a red light
+                done = False
 
-        elif self.grid[new_row, new_col]=='D':
-            print("episode compelte")
-            reward = 100
-            done = True
+            elif self.grid[new_row, new_col]=='D':
+                print("episode compelte")
+                reward = 100
+                done = True
 
-        #else if the new action is a valid move
-        elif self.grid[new_row, new_col] in [0, 'G']:
-            self.grid[row,col] = 0
-            self.vehicle_position = (new_row, new_col)
-            self.grid[new_row, new_col] = 'V'
-            print(f"Vehicle moved to position: {self.vehicle_position}")
-            reward = -1 #small negative penalty to reduce unneccessary exploring
-            done = False
+            #else if the new action is a valid move
+            elif self.grid[new_row, new_col] in [0, 'G']:
+                self.grid[row,col] = 0
+                self.vehicle_position = (new_row, new_col)
+                self.grid[new_row, new_col] = 'V'
+                print(f"Vehicle moved to position: {self.vehicle_position}")
+                reward = -1 #small negative penalty to reduce unneccessary exploring
+                done = False
+
+        else:
+            #anything else such as out of boundary
+            reward = -10
+            done = False        
+
+           
 
         next_state = self.local_observation
         return next_state, reward, done
@@ -245,6 +258,8 @@ class Environment:
 
 
 env = Environment(grid_size=10)
+
+
 
 # Get the local observation matrix
 local_obs = env.local_observation()
