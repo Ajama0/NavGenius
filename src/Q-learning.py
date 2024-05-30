@@ -1,3 +1,5 @@
+import numpy as np
+
 class QLearningAgent:
     def __init__(self, env, alpha, gamma, epsilon):
         self.env = env
@@ -29,8 +31,8 @@ class QLearningAgent:
             while not done:
                 action = self.choose_action(state)
                 next_state, reward, done = self.env.movement(action)
-                
-                if reward == -50:
+
+                if reward == -100:
                     collisions += 1
                 if reward == -5:
                     infractions += 1
@@ -48,12 +50,13 @@ class QLearningAgent:
 
             print(f"Episode {episode + 1}: Total Reward: {total_reward}, Steps: {step_count}, Collisions: {collisions}, Infractions: {infractions}, Success: {success}")
             print("-------------------------------------------------------------------------------------------------------------------------")
-
+            number_of_states = sum(len(s) for s in self.q_table.values())
+            print("Number of states in the Q-table:", number_of_states)
             performance_metrics['episode'].append(episode + 1)
             performance_metrics['total_reward'].append(total_reward)
             performance_metrics['steps'].append(step_count)
             performance_metrics['collisions'].append(collisions)
-            performance_metrics['infractions'].append(infractions)
+            performance_metrics['Red lights passed'].append(infractions)
             performance_metrics['success'].append(success)
 
             self.epsilon = max(self.epsilon * epsilon_decay_rate, 0.1)
@@ -71,7 +74,7 @@ class QLearningAgent:
               # if the state is not in the q table, initialize all q-values for actions = 0
                 self.q_table[state_key] = {action: 0 for action in self.env.ACTIONS}
             #choose action that maximises q value
-            action = max(self.q_table[state_key], key=self.q_table[state_key].get)
+            action = max(self.q_table[state_key].keys() & self.env.valid_actions(), key=self.q_table[state_key].get)
         return action
 
 
@@ -93,14 +96,15 @@ class QLearningAgent:
         new_value = (1 - self.alpha) * old_value + self.alpha * (reward + self.gamma * next_max)
         self.q_table[state_key][action] = new_value
 
-    @staticmethod
-    def get_state_key(state):
+    def get_state_key(self, state):
        #return the local observation as a string to define it as a key
-        return str(state.flatten())
-    
+        return str(state.flatten()) + str(self.env.vehicle_position)
     
 
-env = Environment(grid_size=10)
+
+
+env = Environment(10)
+
 # Get the local observation matrix
 local_obs = env.local_observation()
 
@@ -114,10 +118,8 @@ print("Global Grid:")
 for row in env.grid:
     print(' '.join(map(str, row)))
 
-agent = QLearningAgent(env, alpha=0.1, gamma=0.9, epsilon=1.0)
 
-# Train the agent and collect performance metrics
+
+agent = QLearningAgent(env, alpha=0.1, gamma=0.9, epsilon=1)
 performance_metrics = agent.learning(episodes=1000, epsilon_decay_rate=0.99)
-
-
-print(performance_metrics)
+print(performance_metrics)    

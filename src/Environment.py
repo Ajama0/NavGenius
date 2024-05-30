@@ -42,6 +42,8 @@ class Environment:
         # Allow for the random placing of traffic lights
         #traffic lights can only be placed on intersections
         #define the number of traffic lights
+        random.seed(123478)
+        np.random.seed(123478)
         num_traffic_lights = 8
         for _ in range(num_traffic_lights):  # iterating based on number of traffic lights
             while True:
@@ -93,6 +95,7 @@ class Environment:
     def static_pedestrians(self):
         #define the number of pedestrians
         num_of_pedestrians = 8
+        random.seed(1324)
         for _ in range(num_of_pedestrians):
             while True:
                 row = random.randint(0, self.grid_size-1)
@@ -188,12 +191,11 @@ class Environment:
         move = self.ACTIONS[action]
         new_row, new_col = row + move[0], col + move[1]
 
-
         if self.within_boundary(new_row,new_col):
             if self.grid[new_row,new_col] =='P':
                 #print("collided with a pedestrian")
                 #assign a large penalty for hitting a pedestrian
-                reward = -50
+                reward = -100
                 #end the episode when the agent collides with pedestrian
                 done = False
 
@@ -208,19 +210,16 @@ class Environment:
                 done = True
 
             #else if the new action is a valid move
-            elif self.grid[new_row, new_col] in [0, 'G']:
+            elif self.grid[new_row, new_col] in [0, 'G', 'V']:
                 self.grid[row,col] = 0
-                self.vehicle_position = (new_row, new_col)
                 self.grid[new_row, new_col] = 'V'
                 #print(f"Vehicle moved to position: {self.vehicle_position}")
                 reward = -1 #small negative penalty to reduce unneccessary exploring
                 done = False
+            self.vehicle_position = (new_row, new_col)
 
         else:
-            #anything else such as out of boundary
-            reward = -0.1
-            done = False
-
+            raise ValueError()
 
 
         next_state = self.local_observation()
@@ -248,5 +247,3 @@ class Environment:
         self.static_pedestrians()
 
         return self.local_observation()
-
-
